@@ -1,5 +1,8 @@
 import React, { Component } from 'react';
+import Grid from "@material-ui/core/Grid"
 import { createApiUrl } from "./api"
+import Game from "./Game";
+
 
 class App extends Component {
   constructor() {
@@ -25,7 +28,15 @@ class App extends Component {
     return (
       <>
         {this.state.fetching && <div>Loading</div>}
-        {this.state.games.map(game => <pre key="{game.id}">{JSON.stringify(game)}</pre>)}
+        <div style={{ padding: 20 }}>
+          <Grid container spacing={24}>
+            {this.state.games.map(game => (
+              <Grid item xs={6}>
+                <Game key="{game.id}" game={game} />
+              </Grid>
+            ))}
+          </Grid>
+        </div >
       </>
     )
   }
