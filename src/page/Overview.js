@@ -16,16 +16,14 @@ class Overview extends Component {
     };
   }
 
-  componentDidMount() {
+  async componentDidMount() {
     this.setState({ fetching: true });
-    fetch(createApiUrl("games"))
-      .then(res => res.json())
-      .then(json =>
-        this.setState({
-          fetching: false,
-          games: json
-        })
-      );
+    const result = await fetch(createApiUrl("games"));
+    const json = await result.json();
+    this.setState({
+      fetching: false,
+      games: json
+    });
   }
 
   render() {
