@@ -1,4 +1,5 @@
 import React, { Component } from "react";
+import { Link } from "react-router-dom";
 import Grid from "@material-ui/core/Grid";
 import Button from "@material-ui/core/Button";
 import AddIcon from "@material-ui/icons/Add";
@@ -39,9 +40,11 @@ class Overview extends Component {
               </Grid>
             ))}
           </Grid>
-          <Button variant="fab" color="primary">
-            <AddIcon />
-          </Button>
+          <Link to="/game/add">
+            <Button variant="fab" color="primary">
+              <AddIcon />
+            </Button>
+          </Link>
         </div>
       </>
     );
