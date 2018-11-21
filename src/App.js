@@ -1,8 +1,10 @@
-import React, { Component } from 'react';
-import Grid from "@material-ui/core/Grid"
-import { createApiUrl } from "./api"
-import Game from "./Game";
+import React, { Component } from "react";
+import Grid from "@material-ui/core/Grid";
+import Button from "@material-ui/core/Button";
+import AddIcon from "@material-ui/icons/Add";
 
+import { createApiUrl } from "./api";
+import Game from "./Game";
 
 class App extends Component {
   constructor() {
@@ -10,18 +12,19 @@ class App extends Component {
     this.state = {
       fetching: false,
       games: []
-    }
+    };
   }
 
   componentDidMount() {
     this.setState({ fetching: true });
-    console.log(createApiUrl);
     fetch(createApiUrl("games"))
       .then(res => res.json())
-      .then(json => this.setState({
-        fetching: false,
-        games: json
-      }));
+      .then(json =>
+        this.setState({
+          fetching: false,
+          games: json
+        })
+      );
   }
 
   render() {
@@ -36,9 +39,12 @@ class App extends Component {
               </Grid>
             ))}
           </Grid>
-        </div >
+          <Button variant="fab" color="primary">
+            <AddIcon />
+          </Button>
+        </div>
       </>
-    )
+    );
   }
 }
 
