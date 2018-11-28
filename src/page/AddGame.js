@@ -71,6 +71,10 @@ const styles = theme => ({
 });
 
 class AddGame extends Component {
+  static propTypes = {
+    classes: PropTypes.object.isRequired
+  };
+
   state = {
     name: "",
     city: "",
@@ -267,12 +271,12 @@ class AddGame extends Component {
             </div>
             {this.state.newQuestion.answers.map((e, i) => (
               <div key={i}>
-                <p className={classes.newQuestionAnswer}>{e}</p>
                 <Checkbox
                   value={"i" + i}
                   checked={i === this.state.newQuestion.correctAnswer}
                   onChange={this.handleChangeCorrectAnswer}
                 />
+                <p className={classes.newQuestionAnswer}>{e}</p>
               </div>
             ))}
             <div>
@@ -374,9 +378,5 @@ class AddGame extends Component {
     );
   }
 }
-
-AddGame.propTypes = {
-  classes: PropTypes.object.isRequired
-};
 
 export default withStyles(styles)(AddGame);

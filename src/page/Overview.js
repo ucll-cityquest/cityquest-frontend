@@ -1,7 +1,7 @@
 import React, { Component } from "react";
 import { Link } from "react-router-dom";
 import Grid from "@material-ui/core/Grid";
-import Button from "@material-ui/core/Button";
+import Fab from "@material-ui/core/Fab";
 import AddIcon from "@material-ui/icons/Add";
 
 import { createApiUrl } from "../api";
@@ -33,15 +33,17 @@ class Overview extends Component {
         <div style={{ padding: 20 }}>
           <Grid container spacing={24}>
             {this.state.games.map(game => (
-              <Grid item xs={6}>
-                <Game key="{game.id}" game={game} />
+              <Grid item xs={6} key={game.id}>
+                <Link to={`/game/${game.id}`}>
+                  <Game key={game.id} game={game} />
+                </Link>
               </Grid>
             ))}
           </Grid>
           <Link to="/game/add">
-            <Button variant="fab" color="primary">
+            <Fab color="primary">
               <AddIcon />
-            </Button>
+            </Fab>
           </Link>
         </div>
       </>
