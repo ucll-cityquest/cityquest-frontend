@@ -163,7 +163,7 @@ class AddGame extends Component {
         coordinates: { lat: Number(t.lat), lng: Number(t.lng) },
         questions: t.questions.map(e => ({
           question: e.question,
-          extraInfo: e.comment,
+          extraInformation: e.comment,
           coordinates: { lat: Number(e.lat), lng: Number(e.lng) },
           answers: e.answers,
           correctAnswer: e.correctAnswer
