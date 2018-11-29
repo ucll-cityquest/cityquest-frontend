@@ -6,15 +6,23 @@ import AddIcon from "@material-ui/icons/Add";
 
 import { createApiUrl } from "../api";
 import Game from "../components/Game";
+import { createLocationStream } from "../geolocation";
 
 class Overview extends Component {
   state = {
     fetching: false,
-    games: []
+    games: [],
+    location: [0, 0]
   };
 
-  async componentDidMount() {
+  componentDidMount() {
+    this.fetchGames();
+    this.close = createLocationStream(location => this.setState({ location }));
+  }
+
+  async fetchGames() {
     this.setState({ fetching: true });
+
     try {
       const result = await fetch(createApiUrl("games"));
       const json = await result.json();
@@ -30,8 +38,17 @@ class Overview extends Component {
     }
   }
 
+  componentWillUnmount() {
+    this.close();
+  }
+
   render() {
-    const { loading, error, games } = this.state;
+    const {
+      loading,
+      error,
+      games,
+      location: [lat, lng]
+    } = this.state;
 
     if (loading) {
       return <div>Loading</div>;
@@ -56,6 +73,9 @@ class Overview extends Component {
             <AddIcon />
           </Fab>
         </Link>
+        <p>
+          Your curent location is: ({lat}, {lng})
+        </p>
       </div>
     );
   }
