@@ -9,7 +9,7 @@ const App = () => (
     <React.Fragment>
       <Route exact path="/" component={Overview} />
       <Route exact path="/game/add" component={AddGame} />
-      <Route path="/game/:id" component={Play} />
+      <Route exact path="/game/play/:id" component={Play} />
     </React.Fragment>
   </Router>
 );

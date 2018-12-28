@@ -3,6 +3,7 @@ import TextField from "@material-ui/core/TextField";
 import PropTypes from "prop-types";
 import { withStyles } from "@material-ui/core/styles";
 import { createApiUrl } from "../api";
+import { Redirect } from "react-router";
 
 import Card from "@material-ui/core/Card";
 import CardContent from "@material-ui/core/CardContent";
@@ -106,6 +107,7 @@ class AddGame extends Component {
   };
 
   handleAddAnswer = () => {
+    if (!this.state.newQuestion.newAnswer.trim()) return;
     this.setState({
       newQuestion: {
         ...this.state.newQuestion,
@@ -119,6 +121,11 @@ class AddGame extends Component {
   };
 
   handleAddQuestion = () => {
+    if (
+      !this.state.newQuestion.question ||
+      this.state.newQuestion.correctAnswer === -1
+    )
+      return;
     this.setState({
       questions: [...this.state.questions, this.state.newQuestion],
       newQuestion: {
@@ -152,9 +159,11 @@ class AddGame extends Component {
   };
 
   handleSubmit = async () => {
+    if (!this.state.name || !this.state.city) return;
+
     let t = this.state;
 
-    await fetch(createApiUrl("games"), {
+    let result = await fetch(createApiUrl("games"), {
       method: "POST",
       headers: {
         Accept: "application/json",
@@ -174,9 +183,16 @@ class AddGame extends Component {
         }))
       })
     });
+    if (result.ok) {
+      this.setState({ toOverview: true });
+    }
   };
 
   render() {
+    if (this.state.toOverview) {
+      return <Redirect to="/" />;
+    }
+
     const { classes } = this.props;
 
     return (
@@ -270,7 +286,7 @@ class AddGame extends Component {
               />
             </div>
             {this.state.newQuestion.answers.map((e, i) => (
-              <div key={i}>
+              <div key={i} style={{ marginLeft: 50 }}>
                 <Checkbox
                   value={"i" + i}
                   checked={i === this.state.newQuestion.correctAnswer}
@@ -315,6 +331,7 @@ class AddGame extends Component {
                 color="primary"
                 className={classes.button}
                 onClick={this.handleAddQuestion}
+                style={{ marginLeft: 50 }}
               >
                 Add question
               </Button>
@@ -370,6 +387,7 @@ class AddGame extends Component {
             color="primary"
             className={[classes.button, classes.submit].join(" ")}
             onClick={this.handleSubmit}
+            style={{ marginLeft: 50 }}
           >
             Save game
           </Button>

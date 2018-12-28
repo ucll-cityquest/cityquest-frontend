@@ -62,7 +62,7 @@ class Overview extends Component {
         <Grid container spacing={24}>
           {games.map(game => (
             <Grid item xs={6} key={game.id}>
-              <Link to={`/game/${game.id}`}>
+              <Link to={`/game/play/${game.id}`}>
                 <Game key={game.id} game={game} />
               </Link>
             </Grid>

@@ -23,7 +23,7 @@ class Play extends React.Component {
     });
 
     try {
-      const download = await fetch(createApiUrl(`/games/${id}`));
+      const download = await fetch(createApiUrl(`games/${id}`));
       const result = await download.json();
       this.setState({
         game: result
