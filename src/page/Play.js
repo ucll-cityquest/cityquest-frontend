@@ -4,13 +4,7 @@ import { createApiUrl } from "../api";
 import Modal from "react-responsive-modal";
 import { Map, TileLayer, Marker, Popup, Circle } from "react-leaflet";
 import { createLocationStream } from "../geolocation";
-const radius = 50;
-
-const styles = {
-  answer: {
-    borderBottom: "1px solid black"
-  }
-};
+const radius = 500;
 
 class Play extends React.Component {
   static proptypes = {
@@ -24,6 +18,7 @@ class Play extends React.Component {
   state = {
     loading: true,
     modalOpen: false,
+    modal2Open: false,
     loadingStartLocation: true,
     showMap: false,
     startingLocation: [0, 0],
@@ -116,64 +111,84 @@ class Play extends React.Component {
       return diff <= radius;
     };
 
+    let activeQuestionsQueue = [...this.state.activeQuestionsQueue];
+    let ignoredQuestions = [...this.state.ignoredQuestions];
+    let activeQuestion =
+      this.state.activeQuestion === null
+        ? null
+        : { ...this.state.activeQuestion };
+    let modalOpen = this.state.modalOpen;
+    let setNew = false;
+
     const activeQuestionSetter = () => {
       // SETTING NEW ACTIVE QUESTION IF NECESSARY
-      if (
-        !this.state.activeQuestion &&
-        this.state.activeQuestionsQueue.length > 0
-      ) {
-        for (let i = 0; i < this.state.activeQuestionsQueue.length; i++) {
-          let item = this.state.activeQuestionsQueue[i];
-          if (!item.selectedAnswer || item.selectedAnswer === -1) {
-            this.setState({ activeQuestion: item, modalOpen: true });
+      if (!activeQuestion && activeQuestionsQueue.length > 0) {
+        for (let i = 0; i < activeQuestionsQueue.length; i++) {
+          let item = activeQuestionsQueue[i];
+          if (item.selectedAnswer === undefined || item.selectedAnswer === -1) {
+            item.selectedAnswer = -1;
+            this.setState(
+              {
+                activeQuestion,
+                activeQuestionsQueue,
+                ignoredQuestions,
+                modalOpen
+              },
+              () => this.setState({ activeQuestion: item, modalOpen: true })
+            );
             return;
           }
         }
       }
     };
 
-    let count = 0;
     this.state.game.questions.forEach(el => {
-      let res1 = this.isQuestionInArray(el, this.state.activeQuestionsQueue);
-      let res2 = this.isQuestionInArray(el, this.state.ignoredQuestions);
+      let res1 = this.isQuestionInArray(el, activeQuestionsQueue);
+      let res2 = this.isQuestionInArray(el, ignoredQuestions);
 
       if (!isQuestionInRadius(el)) {
-        let props = {};
         // REMOVING ITEM FROM ACTIVE QUESTIONS QUEUE
         if (res1 !== false)
-          props.activeQuestionsQueue = this.state.activeQuestionsQueue.filter(
+          activeQuestionsQueue = activeQuestionsQueue.filter(
             (_, i) => res1 !== i
           );
         if (
           this.state.activeQuestion &&
           el.id === this.state.activeQuestion.id
         ) {
-          props.activeQuestion = null;
-          props.modalOpen = false;
+          activeQuestion = null;
+          modalOpen = false;
         }
 
         // REMOVING ITEM FROM IGNORED QUESTIONS
         if (res2 !== false)
-          props.ignoredQuestions = this.state.ignoredQuestions.filter(
-            (_, i) => res2 !== i
-          );
-
-        this.setState(props);
+          ignoredQuestions = ignoredQuestions.filter((_, i) => res2 !== i);
         return;
       }
       if (
-        this.isQuestionInArray(el, this.state.activeQuestionsQueue) === false &&
-        this.isQuestionInArray(el, this.state.ignoredQuestions) === false
+        this.isQuestionInArray(el, activeQuestionsQueue) === false &&
+        this.isQuestionInArray(el, ignoredQuestions) === false
       ) {
-        this.setState(
-          { activeQuestionsQueue: [...this.state.activeQuestionsQueue, el] },
-          () => {
-            if (++count === this.state.game.questions.length)
-              activeQuestionSetter();
-          }
-        );
+        activeQuestionsQueue = [...activeQuestionsQueue, el];
+      }
+      if (
+        this.isQuestionInArray(el, activeQuestionsQueue) !== false &&
+        activeQuestion === null &&
+        (el.selectedAnswer === undefined || el.selectedAnswer === -1)
+      ) {
+        setNew = true;
       }
     });
+    if (setNew) {
+      activeQuestionSetter();
+    } else {
+      this.setState({
+        activeQuestion,
+        activeQuestionsQueue,
+        ignoredQuestions,
+        modalOpen
+      });
+    }
   }
 
   isQuestionInArray(question, array) {
@@ -276,46 +291,85 @@ class Play extends React.Component {
             <span>You are here!</span>
           </Popup>
         </Marker>
-        {this.state.game.questions.map(el => (
-          <React.Fragment key={el.id}>
-            <Marker position={[el.coordinates.lat, el.coordinates.lng]}>
-              <Popup>
-                <span>Question: {el.question}</span>
-              </Popup>
-            </Marker>
-            <Circle
-              center={[el.coordinates.lat, el.coordinates.lng]}
-              radius={radius}
-            >
-              <Popup>
-                <span>Radius for question: {el.question}</span>
-              </Popup>
-            </Circle>
-          </React.Fragment>
-        ))}
+        {this.state.game.questions.map(el =>
+          el.selectedAnswer !== undefined && el.selectedAnswer !== -1 ? (
+            <></>
+          ) : (
+            <React.Fragment key={el.id}>
+              <Marker position={[el.coordinates.lat, el.coordinates.lng]}>
+                <Popup>
+                  <span>Question: {el.question}</span>
+                </Popup>
+              </Marker>
+              <Circle
+                center={[el.coordinates.lat, el.coordinates.lng]}
+                radius={radius}
+              >
+                <Popup>
+                  <span>Radius for question: {el.question}</span>
+                </Popup>
+              </Circle>
+            </React.Fragment>
+          )
+        )}
       </Map>
     );
   }
 
-  onOpenModal() {
-    this.setState({ modalOpen: true });
+  onCloseModal() {
+    this.setState(
+      {
+        modalOpen: false,
+        activeQuestionsQueue: this.state.activeQuestionsQueue.filter(
+          e => e.id !== this.state.activeQuestion.id
+        ),
+        ignoredQuestions: [
+          ...this.state.ignoredQuestions,
+          this.state.activeQuestion
+        ],
+        activeQuestion: null
+      },
+      () => this.updateActiveQuestions()
+    );
   }
 
-  onCloseModal() {
-    this.setState({ modalOpen: false });
+  onCloseModal2() {
+    this.setState({ modal2Open: false, activeQuestion: null }, () =>
+      this.updateActiveQuestions()
+    );
+  }
+
+  selectAnswer(index) {
+    this.setState({
+      activeQuestion: { ...this.state.activeQuestion, selectedAnswer: index }
+    });
+  }
+
+  submitAnswer() {
+    let questions = [];
+    this.state.game.questions.forEach(el => {
+      if (el.id === this.state.activeQuestion.id) {
+        el.selectedAnswer = this.state.activeQuestion.selectedAnswer;
+      }
+      questions.push({ ...el });
+    });
+    this.setState(
+      { game: { ...this.state.game, questions }, modalOpen: false },
+      () => setTimeout(() => this.setState({ modal2Open: true }), 200)
+    );
   }
 
   renderActiveQuestion() {
     let {
       id,
       question,
-      extraInformation,
       answers,
-      correctAnswer
+      selectedAnswer,
+      correctAnswer,
+      extraInformation
     } = this.state.activeQuestion;
     return (
       <div>
-        <button onClick={this.onOpenModal.bind(this)}>Open modal</button>
         <Modal
           open={this.state.modalOpen}
           onClose={this.onCloseModal.bind(this)}
@@ -323,11 +377,32 @@ class Play extends React.Component {
         >
           <h2>{question}</h2>
           {answers.map((el, i) => (
-            <p id={"answer" + { i }} className={styles.answer}>
-              {el}
-            </p>
+            <div style={{ display: "flex" }}>
+              <span
+                onClick={() => this.selectAnswer(i)}
+                className={
+                  selectedAnswer === i ? "answer selectedAnswer" : "answer"
+                }
+              >
+                {el}
+              </span>
+            </div>
           ))}
-          <button>Submit</button>
+          <button style={{ marginTop: 20 }} onClick={() => this.submitAnswer()}>
+            Submit
+          </button>
+        </Modal>
+        <Modal
+          open={this.state.modal2Open}
+          onClose={this.onCloseModal2.bind(this)}
+          center
+        >
+          <h2>
+            {selectedAnswer === correctAnswer
+              ? "Congratulations, that was correct!"
+              : "Bummer, that was wrong!"}
+          </h2>
+          <p>{extraInformation}</p>
         </Modal>
       </div>
     );
