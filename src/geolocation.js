@@ -8,23 +8,25 @@
  *  @returns close function
  */
 export function createLocationStream(
-  succesCb,
-  errorCb = err => {
-    console.error(err);
-  },
-  intervalTime = 1000
+  successCb,
+  errorCb = err => console.error(err)
 ) {
   if (navigator.geolocation === undefined) {
-    throw new Error("Browser does not support geolocation");
+    errorCb("Browser does not support geolocation");
+    return;
   }
 
-  const intervalId = setInterval(() => {
-    navigator.geolocation.getCurrentPosition(
-      position =>
-        succesCb([position.coords.latitude, position.coords.longitude]),
-      errorCb
-    );
-  }, intervalTime);
+  const options = {
+    enableHighAccuracy: true,
+    timeout: 5000,
+    maximumAge: 0
+  };
 
-  return () => clearInterval(intervalId);
+  let id = navigator.geolocation.watchPosition(
+    position =>
+      successCb([position.coords.latitude, position.coords.longitude]),
+    errorCb,
+    options
+  );
+  return () => navigator.geolocation.clearWatch(id);
 }

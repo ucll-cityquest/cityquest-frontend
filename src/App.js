@@ -4,6 +4,8 @@ import Overview from "./page/Overview";
 import AddGame from "./page/AddGame";
 import Play from "./page/Play";
 
+// TODO: save generated user id in localstorage & read from localstorage to load id if it exists
+
 const App = () => (
   <Router>
     <React.Fragment>
