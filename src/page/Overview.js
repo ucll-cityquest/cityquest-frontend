@@ -6,6 +6,7 @@ import AddIcon from "@material-ui/icons/Add";
 
 import { createApiUrl } from "../api";
 import Game from "../components/Game";
+import { getUserId } from "../util";
 
 class Overview extends Component {
   state = {
@@ -17,12 +18,37 @@ class Overview extends Component {
     this.fetchGames();
   }
 
+  sortGames(games, ratings) {
+    let nums = Object.keys(ratings).map(key => ratings[key]);
+    nums.sort((a, b) => b - a);
+    let result = [];
+    let prevnum = -1;
+    nums.forEach(num => {
+      if (num === prevnum) return;
+      prevnum = num;
+      games.forEach(game => {
+        if (ratings[game.id] === num) result.push(game);
+      });
+    });
+    games.forEach(game => {
+      if (ratings[game.id] === undefined) result.push(game);
+    });
+
+    return result;
+  }
+
   async fetchGames() {
     this.setState({ fetching: true });
-
     try {
       const result = await fetch(createApiUrl("games"));
-      const json = await result.json();
+      const result2 = await fetch(
+        createApiUrl("games/recommended/" + getUserId())
+      );
+      let json = await result.json();
+      try {
+        let json2 = await result2.json();
+        json = this.sortGames(json, json2);
+      } catch (error) {}
       this.setState({
         fetching: false,
         games: json

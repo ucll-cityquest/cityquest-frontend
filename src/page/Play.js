@@ -4,6 +4,8 @@ import { createApiUrl } from "../api";
 import Modal from "react-responsive-modal";
 import { Map, TileLayer, Marker, Popup, Circle } from "react-leaflet";
 import { createLocationStream } from "../geolocation";
+import { getUserId } from "../util";
+import { Redirect } from "react-router";
 const radius = 500;
 
 class Play extends React.Component {
@@ -17,8 +19,10 @@ class Play extends React.Component {
 
   state = {
     loading: true,
+    toOverview: false,
     modalOpen: false,
     modal2Open: false,
+    modalEndOpen: false,
     loadingStartLocation: true,
     showMap: false,
     startingLocation: [0, 0],
@@ -48,7 +52,7 @@ class Play extends React.Component {
         createApiUrl(`games/${this.props.match.params.id}`)
       );
       if (!download.ok) {
-        this.setState({ game: null });
+        this.setState({ game: null, error: "Game could not be found." });
         return;
       }
       const result = await download.json();
@@ -76,12 +80,24 @@ class Play extends React.Component {
       }
       location[0] += this.state.dev.modN;
       location[1] += this.state.dev.modE;
-      this.updateActiveQuestions();
-      this.setState({ location, ...startingProps, ...otherProps });
+      this.setState({ location, ...startingProps, ...otherProps }, () =>
+        this.updateActiveQuestions()
+      );
     });
   }
 
+  checkEnd() {
+    let end = true;
+    this.state.game.questions.forEach(el => {
+      if (el.selectedAnswer === undefined || el.selectedAnswer === -1)
+        end = false;
+    });
+    if (end) {
+    }
+  }
+
   updateActiveQuestions() {
+    if (this.state.error) return;
     const isQuestionInRadius = el => {
       function getDistance(origin, destination) {
         // return distance in meters
@@ -134,7 +150,10 @@ class Play extends React.Component {
                 ignoredQuestions,
                 modalOpen
               },
-              () => this.setState({ activeQuestion: item, modalOpen: true })
+              () =>
+                this.setState({ activeQuestion: item, modalOpen: true }, () =>
+                  this.checkEnd()
+                )
             );
             return;
           }
@@ -182,12 +201,15 @@ class Play extends React.Component {
     if (setNew) {
       activeQuestionSetter();
     } else {
-      this.setState({
-        activeQuestion,
-        activeQuestionsQueue,
-        ignoredQuestions,
-        modalOpen
-      });
+      this.setState(
+        {
+          activeQuestion,
+          activeQuestionsQueue,
+          ignoredQuestions,
+          modalOpen
+        },
+        () => this.checkEnd()
+      );
     }
   }
 
@@ -206,6 +228,9 @@ class Play extends React.Component {
 
   render() {
     const { loading, error, game } = this.state;
+    if (this.state.toOverview) {
+      return <Redirect to="/" />;
+    }
     if (loading) {
       return <h1>Loading game</h1>;
     }
@@ -271,6 +296,7 @@ class Play extends React.Component {
         {this.state.game !== null &&
           this.state.activeQuestion !== null &&
           this.renderActiveQuestion()}
+        {this.renderEndModal()}
       </div>
     );
   }
@@ -334,9 +360,20 @@ class Play extends React.Component {
   }
 
   onCloseModal2() {
-    this.setState({ modal2Open: false, activeQuestion: null }, () =>
-      this.updateActiveQuestions()
-    );
+    this.setState({ modal2Open: false, activeQuestion: null }, () => {
+      this.updateActiveQuestions();
+      setTimeout(() => {
+        let end = true;
+        this.state.game.questions.forEach(question => {
+          if (
+            question.selectedAnswer === undefined ||
+            question.selectedAnswer === -1
+          )
+            end = false;
+        });
+        if (end) this.setState({ modalEndOpen: true });
+      }, 2000);
+    });
   }
 
   selectAnswer(index) {
@@ -361,7 +398,6 @@ class Play extends React.Component {
 
   renderActiveQuestion() {
     let {
-      id,
       question,
       answers,
       selectedAnswer,
@@ -405,6 +441,55 @@ class Play extends React.Component {
           <p>{extraInformation}</p>
         </Modal>
       </div>
+    );
+  }
+
+  onCloseEndModal() {
+    this.setState({ modalEndOpen: false, toOverview: true });
+  }
+
+  async rateGame(rating) {
+    await fetch(createApiUrl("games/" + this.state.game.id + "/rate"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        gameId: this.state.game.id,
+        userId: getUserId(),
+        rating
+      })
+    });
+    this.onCloseEndModal();
+  }
+
+  renderEndModal() {
+    return (
+      <Modal
+        open={this.state.modalEndOpen}
+        onClose={this.onCloseEndModal.bind(this)}
+        center
+      >
+        <h2>Thank you for playing this game.</h2>
+        <h3>Please rate it!</h3>
+        <div className={"score-container"}>
+          <span onClick={() => this.rateGame(1)} className={"score-item"}>
+            1
+          </span>
+          <span onClick={() => this.rateGame(2)} className={"score-item"}>
+            2
+          </span>
+          <span onClick={() => this.rateGame(3)} className={"score-item"}>
+            3
+          </span>
+          <span onClick={() => this.rateGame(4)} className={"score-item"}>
+            4
+          </span>
+          <span onClick={() => this.rateGame(5)} className={"score-item"}>
+            5
+          </span>
+        </div>
+      </Modal>
     );
   }
 }
