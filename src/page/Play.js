@@ -6,7 +6,7 @@ import { Map, TileLayer, Marker, Popup, Circle } from "react-leaflet";
 import { createLocationStream } from "../geolocation";
 import { getUserId } from "../util";
 import { Redirect } from "react-router";
-const radius = 500;
+const radius = 50;
 
 class Play extends React.Component {
   static proptypes = {
