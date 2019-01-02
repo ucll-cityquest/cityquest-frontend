@@ -2,9 +2,11 @@ import React from "react";
 import { Formik, Field, FieldArray } from "formik";
 import * as Yup from "yup";
 import { withStyles } from "@material-ui/core/styles";
-
-import { TextField } from "formik-material-ui";
 import Button from "@material-ui/core/Button";
+import { TextField } from "formik-material-ui";
+import { withRouter } from "react-router-dom";
+import { createApiUrl } from "../api";
+import classNames from "classnames";
 
 export const DisplayFormikState = props => (
   <div style={{ margin: "1rem 0" }}>
@@ -19,6 +21,75 @@ export const DisplayFormikState = props => (
     </pre>
   </div>
 );
+
+// Input feedback
+const InputFeedback = ({ error }) =>
+  error ? <div className={classNames("input-feedback")}>{error}</div> : null;
+
+const RadioButtonGroup = ({
+  value,
+  error,
+  touched,
+  id,
+  label,
+  className,
+  children
+}) => {
+  const classes = classNames(
+    "input-field",
+    {
+      "is-success": value || (!error && touched), // handle prefilled or user-filled
+      "is-error": !!error && touched
+    },
+    className
+  );
+
+  return (
+    <div className={classes}>
+      <fieldset>
+        <legend>{label}</legend>
+        {children}
+        {touched && <InputFeedback error={error} />}
+      </fieldset>
+    </div>
+  );
+};
+
+const RadioButton = ({
+  field: { name, value, onChange, onBlur },
+  id,
+  label,
+  className,
+  ...props
+}) => {
+  return (
+    <div>
+      <input
+        name={name}
+        id={id}
+        type="radio"
+        value={id}
+        checked={id === value}
+        onChange={onChange}
+        onBlur={onBlur}
+        className={classNames("radio-button")}
+        {...props}
+      />
+      <label htmlFor={id}>{label}</label>
+    </div>
+  );
+};
+
+const emptyQuestion = () => ({
+  id: Math.random(), // used for react key
+  question: "",
+  latitude: 0,
+  longitude: 0,
+  answers: [],
+  correctAnswer: -1,
+  newAnswer: "",
+  extraInformation: ""
+});
 
 const latSchema = Yup.number()
   .required()
@@ -46,10 +117,10 @@ const schema = Yup.object().shape({
           .required()
           .of(
             Yup.object().shape({
-              correct: Yup.boolean().required(),
               value: Yup.string().required()
             })
           ),
+        correctAnswer: Yup.string().required("A correct answer is required"),
         extraInformation: Yup.string().notRequired()
       })
     )
@@ -113,51 +184,61 @@ const styles = theme => ({
   }
 });
 
-const AddGame = ({ classes }) => {
+const AddGame = ({ classes, history }) => {
   const initialValues = {
     name: "",
     city: "",
     latitude: 0,
     longitude: 0,
     description: "",
-    questions: [
-      {
-        id: Math.random(),
-        question: "",
-        latitude: 0,
-        longitude: 0,
-        answers: [],
-        newAnswer: "",
-        extraInformation: ""
-      }
-    ]
+    questions: [emptyQuestion()]
   };
 
   const submit = async (values, { setSubmitting }) => {
-    console.log(values);
-    setTimeout(() => {
-      const body = JSON.stringify({
-        name: values.name,
-        location: values.city,
-        description: values.description,
+    const body = JSON.stringify({
+      name: values.name,
+      location: values.city,
+      description: values.description,
+      coordinates: {
+        lat: Number.parseFloat(values.latitude, 10),
+        lng: Number.parseFloat(values.longitude, 10)
+      },
+      questions: values.questions.map(question => ({
+        question: question.question,
+        extraInformation: question.extraInformation,
         coordinates: {
-          lat: Number.parseFloat(values.latitude, 10),
-          lng: Number.parseFloat(values.longitude, 10)
+          lat: Number.parseFloat(question.latitude, 10),
+          lng: Number.parseFloat(question.longitude, 10)
         },
-        questions: values.questions.map(question => ({
-          question: question.question,
-          extraInformation: question.extraInformation,
-          coordinates: {
-            lat: Number.parseFloat(question.latitude, 10),
-            lng: Number.parseFloat(question.longitude, 10)
-          },
-          answers: question.answers.map(answer => answer.value),
-          correctAnswer: question.answers.findIndex(answer => answer.correct)
-        }))
-      });
-      console.log(body);
-      setSubmitting(false);
-    }, 500);
+        answers: question.answers.map(answer => answer.value),
+        correctAnswer: (() => {
+          let correct = question.answers.findIndex(
+            answer => answer === question.correctAnswer
+          );
+          if (correct === -1) {
+            correct = 0;
+          }
+          return correct;
+        })()
+      }))
+    });
+    console.log(body);
+    let result = await fetch(createApiUrl("games"), {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json"
+      },
+      body
+    });
+
+    setSubmitting(false);
+
+    if (result.ok) {
+      history.push("/");
+    } else {
+      throw new Error(result.status, result.statusText);
+    }
   };
 
   return (
@@ -169,7 +250,15 @@ const AddGame = ({ classes }) => {
         validationSchema={schema}
       >
         {props => {
-          const { values, isSubmitting, handleSubmit, isValid } = props;
+          const {
+            values,
+            errors,
+            touched,
+            isSubmitting,
+            handleSubmit,
+            isValid
+          } = props;
+
           return (
             <form
               className={classes.container}
@@ -202,9 +291,8 @@ const AddGame = ({ classes }) => {
                     {values.questions.map((question, questionIndex) => {
                       const createName = str =>
                         `questions[${questionIndex}].${str}`;
-
                       return (
-                        <div key={question.id}>
+                        <div key={question.id} style={{ marginBottom: 50 }}>
                           <div>
                             <Field
                               name={createName("question")}
@@ -223,20 +311,33 @@ const AddGame = ({ classes }) => {
                               placeholder="longtitude"
                               component={TextField}
                             />
-                            {question.answers.map((answer, answerIndex) => (
-                              <div key={answer.id} style={{ marginLeft: 50 }}>
+                            <RadioButtonGroup
+                              id="correctAnswer"
+                              label="Answers"
+                              value={
+                                values.questions[questionIndex].correctAnswer
+                              }
+                              error={
+                                errors.questions &&
+                                errors.questions[questionIndex] &&
+                                errors.questions[questionIndex].correctAnswer
+                              }
+                              touched={
+                                touched.questions &&
+                                touched.questions[questionIndex] &&
+                                touched.questions[questionIndex].correctAnswer
+                              }
+                            >
+                              {question.answers.map(({ id, value }) => (
                                 <Field
-                                  type="checkbox"
-                                  name={createName(
-                                    `answers[${answerIndex}].correct`
-                                  )}
-                                  //component={Checkbox}
+                                  component={RadioButton}
+                                  id={value}
+                                  label={value}
+                                  key={id}
+                                  name={createName(`correctAnswer`)}
                                 />
-                                <p className={classes.newQuestionAnswer}>
-                                  {answer.value}
-                                </p>
-                              </div>
-                            ))}
+                              ))}
+                            </RadioButtonGroup>
                           </div>
                           <div>
                             <Field name={createName("newAnswer")} />
@@ -251,7 +352,6 @@ const AddGame = ({ classes }) => {
                                     ...question.answers,
                                     {
                                       id: Math.random(),
-                                      correct: false,
                                       value: question.newAnswer
                                     }
                                   ],
@@ -263,36 +363,27 @@ const AddGame = ({ classes }) => {
                               Add answer
                             </Button>
                           </div>
-                          <Button
-                            variant="outlined"
-                            color="primary"
-                            className={classes.button}
-                            onClick={() => {
-                              arrayHelper.push({
-                                id: Math.random(),
-                                question: "",
-                                latitude: 0,
-                                longitude: 0,
-                                answers: [],
-                                newAnswer: "",
-                                extraInformation: ""
-                              });
-                            }}
-                          >
-                            Add new Question
-                          </Button>
                         </div>
                       );
                     })}
+                    <Button
+                      variant="outlined"
+                      color="primary"
+                      className={classes.button}
+                      onClick={() => arrayHelper.push(emptyQuestion())}
+                    >
+                      Add new Question
+                    </Button>
                   </div>
                 )}
               />
 
               <Button
+                type="submit"
                 variant="outlined"
                 color="primary"
                 className={[classes.button, classes.submit].join(" ")}
-                onClick={handleSubmit}
+                //onClick={handleSubmit}
                 style={{ marginLeft: 50 }}
                 disabled={!(isSubmitting || isValid)}
               >
@@ -308,4 +399,4 @@ const AddGame = ({ classes }) => {
   );
 };
 
-export default withStyles(styles)(AddGame);
+export default withStyles(styles)(withRouter(AddGame));
