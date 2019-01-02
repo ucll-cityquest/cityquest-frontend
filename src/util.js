@@ -1,3 +1,5 @@
+import uuid from "uuid/v1";
+
 export const getUserId = () => {
   return localStorage.getItem("userId");
 };
@@ -9,34 +11,12 @@ export const setUserId = id => {
 export const initUserId = () => {
   let id = getUserId();
   if (!id) {
-    setUserId(generateUUID());
+    setUserId(uuid());
   }
-};
-
-const generateUUID = () => {
-  function s4() {
-    return Math.floor((1 + Math.random()) * 0x10000)
-      .toString(16)
-      .substring(1);
-  }
-  return (
-    s4() +
-    s4() +
-    "-" +
-    s4() +
-    "-" +
-    s4() +
-    "-" +
-    s4() +
-    "-" +
-    s4() +
-    s4() +
-    s4()
-  );
 };
 
 /**
- *
+ * Finds index of an array or a default value
  * @param {array} array
  * @param {(element, index, array) => boolean} predicate
  * @param {any} defaultValue

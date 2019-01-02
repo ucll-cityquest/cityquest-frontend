@@ -147,7 +147,7 @@ const AddGame = ({ classes, history }) => {
         )
       }))
     });
-    console.log(body);
+
     let result = await fetch(createApiUrl("games"), {
       method: "POST",
       headers: {
@@ -283,6 +283,7 @@ const AddGame = ({ classes, history }) => {
                                   newAnswer: ""
                                 });
                               }}
+                              //onClick={handleSubmit}
                               disabled={question.newAnswer.trim() === ""}
                             >
                               Add answer
