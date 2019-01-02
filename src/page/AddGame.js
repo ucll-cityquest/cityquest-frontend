@@ -6,7 +6,7 @@ import Button from "@material-ui/core/Button";
 import { TextField } from "formik-material-ui";
 import { withRouter } from "react-router-dom";
 import { createApiUrl } from "../api";
-import { RadioButton, RadioButtonGroup } from "../components/FormikHelper";
+import { RadioButton, RadioButtonGroup } from "../components/FormikHelpers";
 import { findIndexOr } from "../util";
 
 const emptyQuestion = () => ({
@@ -141,7 +141,7 @@ const AddGame = ({ classes, history }) => {
         },
         answers: question.answers.map(answer => answer.value),
         correctAnswer: findIndexOr(
-          questions.answers,
+          question.answers,
           answer => answer === question.correctAnswer,
           0
         )

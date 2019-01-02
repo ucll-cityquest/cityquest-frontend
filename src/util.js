@@ -23,6 +23,6 @@ export const initUserId = () => {
  */
 export function findIndexOr(array, predicate, defaultValue = -1) {
   const value = array.findIndex(predicate);
-  if (value == -1) return defaultValue;
+  if (value === -1) return defaultValue;
   return value;
 }
