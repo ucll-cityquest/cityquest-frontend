@@ -1,17 +1,59 @@
-import React, { Component } from "react";
-import TextField from "@material-ui/core/TextField";
-import PropTypes from "prop-types";
+import React from "react";
+import { Formik, Field, FieldArray } from "formik";
+import * as Yup from "yup";
 import { withStyles } from "@material-ui/core/styles";
-import { createApiUrl } from "../api";
-import { Redirect } from "react-router";
-
-import Card from "@material-ui/core/Card";
-import CardContent from "@material-ui/core/CardContent";
-import Typography from "@material-ui/core/Typography";
 import Button from "@material-ui/core/Button";
-import Checkbox from "@material-ui/core/Checkbox";
-import IconButton from "@material-ui/core/IconButton";
-import DeleteIcon from "@material-ui/icons/Delete";
+import { TextField } from "formik-material-ui";
+import { withRouter } from "react-router-dom";
+import { createApiUrl } from "../api";
+import { RadioButton, RadioButtonGroup } from "../components/FormikHelper";
+import { findIndexOr } from "../util";
+
+const emptyQuestion = () => ({
+  id: Math.random(),
+  question: "",
+  latitude: 0,
+  longitude: 0,
+  answers: [],
+  correctAnswer: -1,
+  newAnswer: "",
+  extraInformation: ""
+});
+
+const latSchema = Yup.number()
+  .required()
+  .min(-90)
+  .max(+90);
+const lngSchema = Yup.number()
+  .required()
+  .min(-180)
+  .max(+180);
+
+const schema = Yup.object().shape({
+  name: Yup.string().required(),
+  city: Yup.string().required(),
+  latitude: latSchema,
+  longitude: lngSchema,
+  description: Yup.string().required(),
+  questions: Yup.array()
+    .required()
+    .of(
+      Yup.object().shape({
+        question: Yup.string().required(),
+        latitude: latSchema,
+        longitude: lngSchema,
+        answers: Yup.array()
+          .required()
+          .of(
+            Yup.object().shape({
+              value: Yup.string().required()
+            })
+          ),
+        correctAnswer: Yup.string().required("A correct answer is required"),
+        extraInformation: Yup.string().notRequired()
+      })
+    )
+});
 
 const styles = theme => ({
   container: {
@@ -71,330 +113,212 @@ const styles = theme => ({
   }
 });
 
-class AddGame extends Component {
-  static propTypes = {
-    classes: PropTypes.object.isRequired
-  };
-
-  state = {
+const AddGame = ({ classes, history }) => {
+  const initialValues = {
     name: "",
     city: "",
-    lat: 0,
-    lng: 0,
+    latitude: 0,
+    longitude: 0,
     description: "",
-    newQuestion: {
-      question: "",
-      lat: 0,
-      lng: 0,
-      answers: [],
-      correctAnswer: -1,
-      newAnswer: "",
-      comment: ""
-    },
-    questions: []
+    questions: [emptyQuestion()]
   };
 
-  handleChange = name => event => {
-    this.setState({
-      [name]: event.target.value
+  const submit = async (values, { setSubmitting }) => {
+    const body = JSON.stringify({
+      name: values.name,
+      location: values.city,
+      description: values.description,
+      coordinates: {
+        lat: Number.parseFloat(values.latitude, 10),
+        lng: Number.parseFloat(values.longitude, 10)
+      },
+      questions: values.questions.map(question => ({
+        question: question.question,
+        extraInformation: question.extraInformation,
+        coordinates: {
+          lat: Number.parseFloat(question.latitude, 10),
+          lng: Number.parseFloat(question.longitude, 10)
+        },
+        answers: question.answers.map(answer => answer.value),
+        correctAnswer: findIndexOr(
+          questions.answers,
+          answer => answer === question.correctAnswer,
+          0
+        )
+      }))
     });
-  };
-
-  handleChangeQuestion = name => event => {
-    this.setState({
-      newQuestion: { ...this.state.newQuestion, [name]: event.target.value }
-    });
-  };
-
-  handleAddAnswer = () => {
-    if (!this.state.newQuestion.newAnswer.trim()) return;
-    this.setState({
-      newQuestion: {
-        ...this.state.newQuestion,
-        answers: [
-          ...this.state.newQuestion.answers,
-          this.state.newQuestion.newAnswer
-        ],
-        newAnswer: ""
-      }
-    });
-  };
-
-  handleAddQuestion = () => {
-    if (
-      !this.state.newQuestion.question ||
-      this.state.newQuestion.correctAnswer === -1
-    )
-      return;
-    this.setState({
-      questions: [...this.state.questions, this.state.newQuestion],
-      newQuestion: {
-        question: "",
-        lat: 0,
-        lng: 0,
-        answers: [],
-        correctAnswer: -1,
-        newAnswer: "",
-        comment: ""
-      }
-    });
-  };
-
-  handleChangeCorrectAnswer = event => {
-    let index = Number(event.target.value.substring(1));
-    this.setState({
-      newQuestion: {
-        ...this.state.newQuestion,
-        correctAnswer: event.target.checked ? index : -1
-      }
-    });
-  };
-
-  handleDeleteQuestion = index => () => {
-    let qs = this.state.questions;
-    index = Number(index);
-    this.setState({
-      questions: qs.slice(0, index).concat(qs.slice(index + 1, qs.length))
-    });
-  };
-
-  handleSubmit = async () => {
-    if (!this.state.name || !this.state.city) return;
-
-    let t = this.state;
-
+    console.log(body);
     let result = await fetch(createApiUrl("games"), {
       method: "POST",
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({
-        name: t.name,
-        location: t.city,
-        description: t.description,
-        coordinates: { lat: Number(t.lat), lng: Number(t.lng) },
-        questions: t.questions.map(e => ({
-          question: e.question,
-          extraInformation: e.comment,
-          coordinates: { lat: Number(e.lat), lng: Number(e.lng) },
-          answers: e.answers,
-          correctAnswer: e.correctAnswer
-        }))
-      })
+      body
     });
+
+    setSubmitting(false);
+
     if (result.ok) {
-      this.setState({ toOverview: true });
+      history.push("/");
+    } else {
+      throw new Error(result.status, result.statusText);
     }
   };
 
-  render() {
-    if (this.state.toOverview) {
-      return <Redirect to="/" />;
-    }
+  return (
+    <>
+      <h1 className={classes.h}>Add quiz</h1>
+      <Formik
+        initialValues={initialValues}
+        onSubmit={submit}
+        validationSchema={schema}
+      >
+        {props => {
+          const {
+            values,
+            errors,
+            touched,
+            isSubmitting,
+            handleSubmit,
+            isValid
+          } = props;
 
-    const { classes } = this.props;
-
-    return (
-      <React.Fragment>
-        <h1 className={classes.h}>Add quiz</h1>
-        <form className={classes.container} noValidate autoComplete="off">
-          <div>
-            <TextField
-              id="name"
-              label="Name"
-              className={classes.textField}
-              value={this.state.name}
-              onChange={this.handleChange("name")}
-              margin="normal"
-              variant="outlined"
-            />
-          </div>
-          <div>
-            <TextField
-              id="city"
-              label="City"
-              className={classes.textField}
-              value={this.state.city}
-              onChange={this.handleChange("city")}
-              margin="normal"
-              variant="outlined"
-            />
-          </div>
-          <div>
-            <TextField
-              id="cityLat"
-              label="Latitude"
-              className={classes.textField}
-              value={this.state.lat}
-              onChange={this.handleChange("lat")}
-              margin="normal"
-              variant="outlined"
-            />
-            <TextField
-              id="cityLng"
-              label="Longitude"
-              className={classes.textField}
-              value={this.state.lng}
-              onChange={this.handleChange("lng")}
-              margin="normal"
-              variant="outlined"
-            />
-          </div>
-          <div>
-            <TextField
-              id="description"
-              label="Description"
-              className={classes.textField}
-              value={this.state.description}
-              onChange={this.handleChange("description")}
-              margin="normal"
-              variant="outlined"
-            />
-          </div>
-          <h2 className={classes.h}>Questions</h2>
-          <div className={classes.addQuestion}>
-            <div>
-              <TextField
-                id="question"
-                label="Question"
-                className={classes.textField}
-                value={this.state.newQuestion.question}
-                onChange={this.handleChangeQuestion("question")}
-                margin="normal"
-                variant="outlined"
-              />
-            </div>
-            <div>
-              <TextField
-                id="lat"
-                label="Latitude"
-                className={classes.textField}
-                value={this.state.newQuestion.lat}
-                onChange={this.handleChangeQuestion("lat")}
-                margin="normal"
-                variant="outlined"
-              />
-              <TextField
-                id="lng"
-                label="Longitude"
-                className={classes.textField}
-                value={this.state.newQuestion.lng}
-                onChange={this.handleChangeQuestion("lng")}
-                margin="normal"
-                variant="outlined"
-              />
-            </div>
-            {this.state.newQuestion.answers.map((e, i) => (
-              <div key={i} style={{ marginLeft: 50 }}>
-                <Checkbox
-                  value={"i" + i}
-                  checked={i === this.state.newQuestion.correctAnswer}
-                  onChange={this.handleChangeCorrectAnswer}
-                />
-                <p className={classes.newQuestionAnswer}>{e}</p>
+          return (
+            <form
+              className={classes.container}
+              onSubmit={handleSubmit}
+              noValidate
+              autoComplete="off"
+            >
+              <div>
+                <Field name="name" placeholder="Name" component={TextField} />
               </div>
-            ))}
-            <div>
-              <TextField
-                id="newAnswer"
-                label="New answer"
-                className={classes.textField}
-                value={this.state.newQuestion.newAnswer}
-                onChange={this.handleChangeQuestion("newAnswer")}
-                margin="normal"
-                variant="outlined"
-              />
-              <Button
-                variant="outlined"
-                color="primary"
-                className={classes.button}
-                onClick={this.handleAddAnswer}
-              >
-                Add answer
-              </Button>
-            </div>
-            <div>
-              <TextField
-                id="comment"
-                label="Extra information"
-                className={classes.textField}
-                value={this.state.newQuestion.comment}
-                onChange={this.handleChangeQuestion("comment")}
-                margin="normal"
-                variant="outlined"
-              />
-            </div>
-            <div>
-              <Button
-                variant="outlined"
-                color="primary"
-                className={classes.button}
-                onClick={this.handleAddQuestion}
-                style={{ marginLeft: 50 }}
-              >
-                Add question
-              </Button>
-            </div>
-          </div>
-          {this.state.questions.map((e, i) => (
-            <div className={classes.cardContainer} key={i}>
-              <Card className={classes.card}>
-                <CardContent>
-                  <IconButton
-                    className={classes.button}
-                    aria-label="Delete"
-                    onClick={this.handleDeleteQuestion(i)}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                  <Typography
-                    className={classes.title}
-                    color="textSecondary"
-                    gutterBottom
-                  >
-                    Question
-                  </Typography>
-                  <Typography variant="h5" component="h2">
-                    {e.question}
-                  </Typography>
-                  <Typography className={classes.pos} color="textSecondary">
-                    lng: {e.lng}, lat: {e.lat}
-                  </Typography>
-                  <div className={classes.answers}>
-                    {e.answers.map((answer, index) => (
-                      <Typography
-                        key={index}
-                        component="p"
-                        className={[
-                          index > 0 ? classes.answer : "",
-                          index === e.correctAnswer ? classes.correctAnswer : ""
-                        ].join(" ")}
-                      >
-                        {answer}
-                      </Typography>
-                    ))}
-                    <Typography className={classes.pos} color="textSecondary">
-                      {e.comment}
-                    </Typography>
+              <div>
+                <Field name="city" placeholder="City" component={TextField} />
+              </div>
+              <div>
+                <Field name="latitude" placeholder="0" component={TextField} />
+                <Field name="longitude" placeholder="0" component={TextField} />
+              </div>
+              <div>
+                <Field
+                  name="description"
+                  placeholder="description"
+                  component={TextField}
+                />
+              </div>
+              <h2 className={classes.h}>Questions</h2>
+              <FieldArray
+                name="questions"
+                render={arrayHelper => (
+                  <div className={classes.addQuestion}>
+                    {values.questions.map((question, questionIndex) => {
+                      const createName = str =>
+                        `questions[${questionIndex}].${str}`;
+                      return (
+                        <div key={question.id} style={{ marginBottom: 50 }}>
+                          <div>
+                            <Field
+                              name={createName("question")}
+                              placeholder="question"
+                              component={TextField}
+                            />
+                          </div>
+                          <div>
+                            <Field
+                              name={createName("latitude")}
+                              placeholder="latitude"
+                              component={TextField}
+                            />
+                            <Field
+                              name={createName("longitude")}
+                              placeholder="longtitude"
+                              component={TextField}
+                            />
+                            <RadioButtonGroup
+                              id="correctAnswer"
+                              label="Answers"
+                              value={
+                                values.questions[questionIndex].correctAnswer
+                              }
+                              error={
+                                errors.questions &&
+                                errors.questions[questionIndex] &&
+                                errors.questions[questionIndex].correctAnswer
+                              }
+                              touched={
+                                touched.questions &&
+                                touched.questions[questionIndex] &&
+                                touched.questions[questionIndex].correctAnswer
+                              }
+                            >
+                              {question.answers.map(({ id, value }) => (
+                                <Field
+                                  component={RadioButton}
+                                  id={value}
+                                  label={value}
+                                  key={id}
+                                  name={createName(`correctAnswer`)}
+                                />
+                              ))}
+                            </RadioButtonGroup>
+                          </div>
+                          <div>
+                            <Field name={createName("newAnswer")} />
+                            <Button
+                              variant="outlined"
+                              color="primary"
+                              className={classes.button}
+                              onClick={() => {
+                                arrayHelper.replace(questionIndex, {
+                                  ...question,
+                                  answers: [
+                                    ...question.answers,
+                                    {
+                                      id: Math.random(),
+                                      value: question.newAnswer
+                                    }
+                                  ],
+                                  newAnswer: ""
+                                });
+                              }}
+                              disabled={question.newAnswer.trim() === ""}
+                            >
+                              Add answer
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <Button
+                      variant="outlined"
+                      color="primary"
+                      className={classes.button}
+                      onClick={() => arrayHelper.push(emptyQuestion())}
+                    >
+                      Add new Question
+                    </Button>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
-          ))}
-          <Button
-            variant="outlined"
-            color="primary"
-            className={[classes.button, classes.submit].join(" ")}
-            onClick={this.handleSubmit}
-            style={{ marginLeft: 50 }}
-          >
-            Save game
-          </Button>
-        </form>
-      </React.Fragment>
-    );
-  }
-}
+                )}
+              />
 
-export default withStyles(styles)(AddGame);
+              <Button
+                type="submit"
+                variant="outlined"
+                color="primary"
+                className={[classes.button, classes.submit].join(" ")}
+                style={{ marginLeft: 50 }}
+                disabled={!(isSubmitting || isValid)}
+              >
+                Save game
+              </Button>
+            </form>
+          );
+        }}
+      </Formik>
+    </>
+  );
+};
+
+export default withStyles(styles)(withRouter(AddGame));
